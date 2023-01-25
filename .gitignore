@@ -1,0 +1,8 @@
+*
+
+!.gitignore
+!PKGBUILD
+!flathub-ui
+!flathub-ui.svg
+!flathub-ui.desktop
+!.SRCINFO

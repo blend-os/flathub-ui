@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Flathub Store
+Comment=User interface for the Flathub store
+Exec=flathub-ui
+Icon=flathub-ui
+StartupWMClass=flathub-ui
+Type=Application
+Categories=System;

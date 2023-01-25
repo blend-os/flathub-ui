@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+
+import gi
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('Gio', '2.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Gio, Gdk, Adw, GLib
+
+gi.require_version('WebKit2', '5.0')
+from gi.repository import WebKit2 as WebKit
+
+import shutil
+import sys, tempfile
+import urllib.request
+
+import subprocess
+import webbrowser
+
+class QuitDialog(Adw.MessageDialog):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.set_heading(heading='Are you sure you want to quit?')
+        self.set_body(body='Setup will launch again the next time you log in.')
+        self.add_response(Gtk.ResponseType.CANCEL.value_nick, 'No')
+        self.set_response_appearance(
+            response=Gtk.ResponseType.CANCEL.value_nick,
+            appearance=Adw.ResponseAppearance.DESTRUCTIVE
+        )
+        self.add_response(Gtk.ResponseType.OK.value_nick, 'Yes')
+        self.set_response_appearance(
+            response=Gtk.ResponseType.OK.value_nick,
+            appearance=Adw.ResponseAppearance.SUGGESTED
+        )
+        self.connect('response', self.dialog_response)
+
+    def dialog_response(self, dialog, response):
+        if response == Gtk.ResponseType.OK.value_nick:
+            exit()
+        elif response == Gtk.ResponseType.CANCEL.value_nick:
+            print(end='')
+
+class PythonWebView:
+    def __init__(self):
+        self.window = Adw.Window()
+        self.window.set_default_size(800, 600)
+        self.window.set_title('Flathub Store')
+        self.window.set_icon_name('flathub-ui')
+
+        GLib.set_prgname('flathub-ui')
+
+        self.style_manager = Adw.StyleManager().get_default()
+
+        self.main_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+
+        self.header_main = Adw.HeaderBar.new()
+        self.main_box.append(self.header_main)
+
+        self.wview = WebKit.WebView()
+        self.wview.load_uri('https://flathub.org')
+        self.wview.set_vexpand(True)
+
+        self.wview_settings = WebKit.Settings()
+        self.wview_settings.set_enable_write_console_messages_to_stdout(True)
+        self.wview_settings.set_property('enable_javascript', True)
+        self.wview.set_settings(self.wview_settings)
+
+        self.wview.connect('decide_policy', self.decide_policy)
+
+        self.main_box.append(self.wview)
+
+        self.window.set_content(self.main_box)
+        self.window.show()
+
+    def decide_policy(self, web_view, decision, type):
+        if type == WebKit.PolicyDecisionType.NAVIGATION_ACTION or type == WebKit.PolicyDecisionType.NEW_WINDOW_ACTION:
+            if decision.get_request().get_uri().endswith('.flatpakref'):
+                with urllib.request.urlopen(decision.get_request().get_uri()) as response, tempfile.NamedTemporaryFile(suffix='.flatpakref', delete=False) as fp:
+                    shutil.copyfileobj(response, fp)
+                subprocess.Popen(['souk', fp.name])
+                decision.ignore()
+            elif not decision.get_request().get_uri().startswith('https://flathub.org'):
+                webbrowser.open(decision.get_request().get_uri(), 2)
+                decision.ignore()
+        return True
+
+if __name__ == "__main__":
+    PythonWebView()
+    GLib.MainLoop().run()
